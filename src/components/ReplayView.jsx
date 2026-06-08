@@ -1,9 +1,12 @@
+import { getComparablePlayersFromReplay } from "../utils/compareStats.js";
 import { matchesPlayerFilter } from "../utils/players.js";
+import FilteredPlayerView from "./FilteredPlayerView.jsx";
 import ReplayHeader from "./ReplayHeader.jsx";
 import TeamSection from "./TeamSection.jsx";
 
 export default function ReplayView({ replay, playerFilter }) {
   const isFiltered = playerFilter !== "all";
+  const comparablePlayers = getComparablePlayersFromReplay(replay);
 
   const blueHasMatch = (replay.blue?.players || []).some((p) => matchesPlayerFilter(p, playerFilter));
   const orangeHasMatch = (replay.orange?.players || []).some((p) =>
@@ -14,14 +17,22 @@ export default function ReplayView({ replay, playerFilter }) {
     <div className="replay-view">
       <ReplayHeader replay={replay} playerFilter={playerFilter} />
 
-      <div className={`teams-grid ${isFiltered ? "teams-grid-filtered" : ""}`}>
-        {replay.blue && (!isFiltered || blueHasMatch) && (
-          <TeamSection team={replay.blue} color="blue" playerFilter={playerFilter} />
-        )}
-        {replay.orange && (!isFiltered || orangeHasMatch) && (
-          <TeamSection team={replay.orange} color="orange" playerFilter={playerFilter} />
-        )}
-      </div>
+      {isFiltered ? (
+        <section className="averaged-players">
+          <FilteredPlayerView
+            players={comparablePlayers}
+            playerFilter={playerFilter}
+            isAverage={false}
+          />
+        </section>
+      ) : (
+        <div className="teams-grid">
+          {replay.blue && <TeamSection team={replay.blue} color="blue" playerFilter={playerFilter} />}
+          {replay.orange && (
+            <TeamSection team={replay.orange} color="orange" playerFilter={playerFilter} />
+          )}
+        </div>
+      )}
     </div>
   );
 }

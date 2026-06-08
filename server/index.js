@@ -4,6 +4,7 @@ import express from "express";
 import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
+import { buildExportPrompt, generateCoachReport } from "./coach.js";
 
 dotenv.config();
 
@@ -54,15 +55,115 @@ app.get("/api/health", (_req, res) => {
   res.json({
     ok: true,
     tokenConfigured: Boolean(BALLCHASING_TOKEN),
+    coachConfigured: Boolean(process.env.OPENAI_API_KEY),
   });
 });
 
-app.post("/api/upload", upload.single("replay"), async (req, res) => {
+app.post("/api/coach/prompt", (req, res) => {
+  const { context } = req.body || {};
+  if (!context?.player) {
+    return res.status(400).json({ error: "Missing coaching context. Select a player first." });
+  }
+
+  res.json({ prompt: buildExportPrompt(context) });
+});
+
+app.post("/api/coach", async (req, res) => {
+  const { context } = req.body || {};
+  if (!context?.player) {
+    return res.status(400).json({ error: "Missing coaching context. Select a player first." });
+  }
+
+  try {
+    const { report, model } = await generateCoachReport(context);
+    res.json({ report, model });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message || "Coaching request failed." });
+  }
+});
+
+function requireToken(res) {
   if (!BALLCHASING_TOKEN) {
-    return res.status(500).json({
+    res.status(500).json({
       error: "BALLCHASING_TOKEN is not set. Copy .env.example to .env and add your token.",
     });
+    return false;
   }
+  return true;
+}
+
+app.get("/api/replays", async (req, res) => {
+  if (!requireToken(res)) return;
+
+  try {
+    const params = new URLSearchParams(req.query);
+    if (!params.has("uploader") && !params.has("player-id") && !params.has("player-name")) {
+      params.set("uploader", "me");
+    }
+
+    const response = await ballchasingFetch(`${BALLCHASING_BASE}/replays?${params}`);
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: data.error || "Failed to list replays from Ballchasing.",
+      });
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message || "Unexpected server error." });
+  }
+});
+
+app.get("/api/replays/:id", async (req, res) => {
+  if (!requireToken(res)) return;
+
+  try {
+    const replay = await pollReplay(req.params.id);
+    res.json({ replay });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message || "Failed to fetch replay." });
+  }
+});
+
+app.post("/api/replays/batch", async (req, res) => {
+  if (!requireToken(res)) return;
+
+  const ids = req.body?.ids;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: "Provide an array of replay IDs." });
+  }
+
+  try {
+    const replays = [];
+    const failures = [];
+
+    for (const id of ids) {
+      try {
+        const replay = await pollReplay(id);
+        replays.push(replay);
+      } catch (err) {
+        failures.push({ id, error: err.message });
+      }
+    }
+
+    if (replays.length === 0) {
+      return res.status(500).json({ error: "All replays failed to load.", failures });
+    }
+
+    res.json({ replays, failures });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message || "Unexpected server error." });
+  }
+});
+
+app.post("/api/upload", upload.single("replay"), async (req, res) => {
+  if (!requireToken(res)) return;
 
   if (!req.file) {
     return res.status(400).json({ error: "No replay file provided." });
@@ -122,5 +223,8 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   if (!BALLCHASING_TOKEN) {
     console.warn("Warning: BALLCHASING_TOKEN is not set.");
+  }
+  if (!process.env.OPENAI_API_KEY) {
+    console.warn("Warning: OPENAI_API_KEY is not set — AI coaching disabled (Copy Prompt still works).");
   }
 });

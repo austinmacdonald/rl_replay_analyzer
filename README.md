@@ -47,7 +47,16 @@ Open http://localhost:3001
 
 ## How it works
 
+### Upload a file
 1. You drop or select one or more `.replay` files in the browser
+
+### Load from Ballchasing
+1. Open the **From Ballchasing** tab
+2. Click **Load my replays** to browse replays uploaded to your account (same API token)
+3. Or paste a [ballchasing.com/replay/…](https://ballchasing.com) URL / UUID and click **Add**
+4. Select one or many replays, then **Load replay** or **Load & average**
+
+### Analysis
 2. Each file is uploaded to `POST /api/v2/upload` on Ballchasing and polled until `ok`
 3. **Single replay:** full match stats (teams, players, all categories)
 4. **Multiple replays:** per-player per-game averages (matched by platform ID), plus session summary and replay list
@@ -59,3 +68,9 @@ Per player: core, boost, movement, positioning, demos, camera settings
 Per team: aggregated stats + ball possession
 
 Match metadata: map, playlist, duration, score, season, overtime
+
+## AI Coaching
+
+1. Upload replays and **select a player** from the dropdown
+2. Click **Get AI Coaching** for an overview and improvement tips (requires `OPENAI_API_KEY` in `.env`)
+3. Or click **Copy Prompt** to paste the structured stats into ChatGPT, Cursor, or any AI agent — no OpenAI key needed

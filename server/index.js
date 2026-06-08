@@ -1,7 +1,6 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
-import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
 import { buildExportPrompt } from "./coach.js";
@@ -10,30 +9,35 @@ dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 const PORT = process.env.PORT || 3001;
-const BALLCHASING_TOKEN = process.env.BALLCHASING_TOKEN;
 const BALLCHASING_BASE = "https://ballchasing.com/api";
 
 app.use(cors());
 app.use(express.json());
 
-function ballchasingHeaders() {
-  return { Authorization: BALLCHASING_TOKEN };
+function requireToken(req, res) {
+  const token = req.headers.authorization?.trim();
+  if (!token) {
+    res.status(401).json({
+      error: "Add your Ballchasing API token in the app settings.",
+    });
+    return null;
+  }
+  return token;
 }
 
-async function ballchasingFetch(url, options = {}) {
+async function ballchasingFetch(url, token, options = {}) {
   const response = await fetch(url, {
     ...options,
-    headers: { ...ballchasingHeaders(), ...options.headers },
+    headers: { Authorization: token, ...options.headers },
   });
   return response;
 }
 
-async function pollReplay(replayId, maxAttempts = 60, intervalMs = 2000) {
+async function pollReplay(replayId, token, maxAttempts = 60, intervalMs = 2000) {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const response = await ballchasingFetch(`${BALLCHASING_BASE}/replays/${replayId}`);
+    const response = await ballchasingFetch(`${BALLCHASING_BASE}/replays/${replayId}`, token);
     if (!response.ok) {
       const text = await response.text();
       throw new Error(`Failed to fetch replay (${response.status}): ${text}`);
@@ -52,10 +56,28 @@ async function pollReplay(replayId, maxAttempts = 60, intervalMs = 2000) {
 }
 
 app.get("/api/health", (_req, res) => {
-  res.json({
-    ok: true,
-    tokenConfigured: Boolean(BALLCHASING_TOKEN),
-  });
+  res.json({ ok: true });
+});
+
+app.get("/api/ping", async (req, res) => {
+  const token = requireToken(req, res);
+  if (!token) return;
+
+  try {
+    const response = await ballchasingFetch(`${BALLCHASING_BASE}/`, token);
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: data.error || "Invalid Ballchasing API token.",
+      });
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message || "Failed to reach Ballchasing." });
+  }
 });
 
 app.post("/api/coach/prompt", (req, res) => {
@@ -67,18 +89,9 @@ app.post("/api/coach/prompt", (req, res) => {
   res.json({ prompt: buildExportPrompt(context) });
 });
 
-function requireToken(res) {
-  if (!BALLCHASING_TOKEN) {
-    res.status(500).json({
-      error: "BALLCHASING_TOKEN is not set. Copy .env.example to .env and add your token.",
-    });
-    return false;
-  }
-  return true;
-}
-
 app.get("/api/replays", async (req, res) => {
-  if (!requireToken(res)) return;
+  const token = requireToken(req, res);
+  if (!token) return;
 
   try {
     const params = new URLSearchParams(req.query);
@@ -86,7 +99,7 @@ app.get("/api/replays", async (req, res) => {
       params.set("uploader", "me");
     }
 
-    const response = await ballchasingFetch(`${BALLCHASING_BASE}/replays?${params}`);
+    const response = await ballchasingFetch(`${BALLCHASING_BASE}/replays?${params}`, token);
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
@@ -103,10 +116,11 @@ app.get("/api/replays", async (req, res) => {
 });
 
 app.get("/api/replays/:id", async (req, res) => {
-  if (!requireToken(res)) return;
+  const token = requireToken(req, res);
+  if (!token) return;
 
   try {
-    const replay = await pollReplay(req.params.id);
+    const replay = await pollReplay(req.params.id, token);
     res.json({ replay });
   } catch (error) {
     console.error(error);
@@ -115,7 +129,8 @@ app.get("/api/replays/:id", async (req, res) => {
 });
 
 app.post("/api/replays/batch", async (req, res) => {
-  if (!requireToken(res)) return;
+  const token = requireToken(req, res);
+  if (!token) return;
 
   const ids = req.body?.ids;
   if (!Array.isArray(ids) || ids.length === 0) {
@@ -128,7 +143,7 @@ app.post("/api/replays/batch", async (req, res) => {
 
     for (const id of ids) {
       try {
-        const replay = await pollReplay(id);
+        const replay = await pollReplay(id, token);
         replays.push(replay);
       } catch (err) {
         failures.push({ id, error: err.message });
@@ -146,55 +161,6 @@ app.post("/api/replays/batch", async (req, res) => {
   }
 });
 
-app.post("/api/upload", upload.single("replay"), async (req, res) => {
-  if (!requireToken(res)) return;
-
-  if (!req.file) {
-    return res.status(400).json({ error: "No replay file provided." });
-  }
-
-  if (!req.file.originalname.toLowerCase().endsWith(".replay")) {
-    return res.status(400).json({ error: "File must be a .replay file." });
-  }
-
-  try {
-    const formData = new FormData();
-    formData.append(
-      "file",
-      new Blob([req.file.buffer], { type: "application/octet-stream" }),
-      req.file.originalname,
-    );
-
-    const visibility = req.query.visibility || "private";
-    const uploadResponse = await ballchasingFetch(
-      `${BALLCHASING_BASE}/v2/upload?visibility=${visibility}`,
-      { method: "POST", body: formData },
-    );
-
-    const uploadBody = await uploadResponse.json().catch(() => ({}));
-
-    if (!uploadResponse.ok && uploadResponse.status !== 409) {
-      return res.status(uploadResponse.status).json({
-        error: uploadBody.error || "Upload to Ballchasing failed.",
-      });
-    }
-
-    const replayId = uploadBody.id;
-    if (!replayId) {
-      return res.status(500).json({ error: "Ballchasing did not return a replay ID." });
-    }
-
-    const replay = await pollReplay(replayId);
-    res.json({
-      duplicate: uploadResponse.status === 409,
-      replay,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message || "Unexpected server error." });
-  }
-});
-
 const distPath = path.join(__dirname, "..", "dist");
 app.use(express.static(distPath));
 app.get("*", (_req, res) => {
@@ -205,7 +171,4 @@ app.get("*", (_req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-  if (!BALLCHASING_TOKEN) {
-    console.warn("Warning: BALLCHASING_TOKEN is not set.");
-  }
 });

@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { apiFetch } from "../utils/api.js";
 import { parseReplayIds } from "../utils/parseReplayId.js";
 
 function formatReplayDate(date) {
@@ -28,8 +29,8 @@ export default function ExistingReplayPicker({ onLoad, loading, statusMessage, t
     try {
       const url = append && nextUrl ? nextUrl.replace("https://ballchasing.com/api", "/api") : null;
       const response = url
-        ? await fetch(url)
-        : await fetch(
+        ? await apiFetch(url)
+        : await apiFetch(
             `/api/replays?${new URLSearchParams({
               uploader: "me",
               count: "25",
@@ -75,10 +76,10 @@ export default function ExistingReplayPicker({ onLoad, loading, statusMessage, t
     onLoad([...selectedIds]);
   }
 
-  if (tokenConfigured === false) {
+  if (!tokenConfigured) {
     return (
       <section className="upload-card">
-        <p className="muted">Set BALLCHASING_TOKEN in .env to load existing replays.</p>
+        <p className="muted">Add your Ballchasing API token above to load existing replays.</p>
       </section>
     );
   }

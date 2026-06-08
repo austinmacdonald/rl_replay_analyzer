@@ -1,29 +1,16 @@
 # Ballchasing Replay Stats Viewer
 
-Upload one or more Rocket League `.replay` files, send them to the [Ballchasing API](https://ballchasing.com/doc/api), and view all player and team stats in a clean web UI. Multi-upload averages stats per player across all replays.
+Load replays from your [Ballchasing](https://ballchasing.com) account and view all player and team stats in a clean web UI. Multi-select replays to average stats per player.
 
 ## Setup
 
-1. **Get a Ballchasing API token** from [ballchasing.com/upload](https://ballchasing.com/upload)
-
-2. **Install dependencies**
+1. **Install dependencies**
 
    ```bash
    npm install
    ```
 
-3. **Configure environment**
-
-   ```bash
-   cp .env.example .env
-   ```
-
-   Edit `.env` and set your token:
-
-   ```
-   BALLCHASING_TOKEN=your_token_here
-   PORT=3001
-   ```
+2. **Run the app** (see below), then paste your [Ballchasing API token](https://ballchasing.com/upload) in the header — stored in your browser only.
 
 ## Run
 
@@ -47,19 +34,11 @@ Open http://localhost:3001
 
 ## How it works
 
-### Upload a file
-1. You drop or select one or more `.replay` files in the browser
-
-### Load from Ballchasing
-1. Open the **From Ballchasing** tab
-2. Click **Load my replays** to browse replays uploaded to your account (same API token)
-3. Or paste a [ballchasing.com/replay/…](https://ballchasing.com) URL / UUID and click **Add**
-4. Select one or many replays, then **Load replay** or **Load & average**
-
-### Analysis
-2. Each file is uploaded to `POST /api/v2/upload` on Ballchasing and polled until `ok`
-3. **Single replay:** full match stats (teams, players, all categories)
-4. **Multiple replays:** per-player per-game averages (matched by platform ID), plus session summary and replay list
+1. Add your Ballchasing API token
+2. Click **Load my replays** or paste replay URLs/UUIDs
+3. Select one or many replays, then **Load replay** or **Load & average**
+4. **Single replay:** full match stats (teams, players, all categories)
+5. **Multiple replays:** per-player per-game averages, plus session summary
 
 ## Stats displayed
 
@@ -71,5 +50,5 @@ Match metadata: map, playlist, duration, score, season, overtime
 
 ## AI Coaching
 
-1. Upload replays and **select a player** from the dropdown
+1. **Select a player** from the dropdown
 2. Click **Copy Prompt** and paste into ChatGPT, Cursor, Gemini, or any AI agent for improvement tips

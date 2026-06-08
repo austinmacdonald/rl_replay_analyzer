@@ -4,7 +4,7 @@ import express from "express";
 import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
-import { buildExportPrompt, generateCoachReport } from "./coach.js";
+import { buildExportPrompt } from "./coach.js";
 
 dotenv.config();
 
@@ -55,7 +55,6 @@ app.get("/api/health", (_req, res) => {
   res.json({
     ok: true,
     tokenConfigured: Boolean(BALLCHASING_TOKEN),
-    coachConfigured: Boolean(process.env.OPENAI_API_KEY),
   });
 });
 
@@ -66,21 +65,6 @@ app.post("/api/coach/prompt", (req, res) => {
   }
 
   res.json({ prompt: buildExportPrompt(context) });
-});
-
-app.post("/api/coach", async (req, res) => {
-  const { context } = req.body || {};
-  if (!context?.player) {
-    return res.status(400).json({ error: "Missing coaching context. Select a player first." });
-  }
-
-  try {
-    const { report, model } = await generateCoachReport(context);
-    res.json({ report, model });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message || "Coaching request failed." });
-  }
 });
 
 function requireToken(res) {
@@ -223,8 +207,5 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   if (!BALLCHASING_TOKEN) {
     console.warn("Warning: BALLCHASING_TOKEN is not set.");
-  }
-  if (!process.env.OPENAI_API_KEY) {
-    console.warn("Warning: OPENAI_API_KEY is not set — AI coaching disabled (Copy Prompt still works).");
   }
 });

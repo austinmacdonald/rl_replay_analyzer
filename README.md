@@ -72,5 +72,4 @@ Match metadata: map, playlist, duration, score, season, overtime
 ## AI Coaching
 
 1. Upload replays and **select a player** from the dropdown
-2. Click **Get AI Coaching** for an overview and improvement tips (requires `OPENAI_API_KEY` in `.env`)
-3. Or click **Copy Prompt** to paste the structured stats into ChatGPT, Cursor, or any AI agent — no OpenAI key needed
+2. Click **Copy Prompt** and paste into ChatGPT, Cursor, Gemini, or any AI agent for improvement tips

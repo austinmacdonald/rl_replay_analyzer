@@ -5,9 +5,9 @@ import {
 import { formatValue, getSectionTitle, humanizeKey } from "../utils/formatStats.js";
 
 const COMPARISON_COLUMNS = [
-  ["core", "positioning"],
+  ["core", "movement"],
   ["boost", "demo"],
-  ["movement"],
+  ["positioning"],
 ];
 
 function ComparisonSection({ section, selectedStats, othersStats }) {
@@ -71,7 +71,6 @@ function ComparisonSection({ section, selectedStats, othersStats }) {
 
 export default function PlayerComparison({ comparison, isAverage }) {
   const { selected, othersAvg, otherCount } = comparison;
-  const core = selected.stats?.core;
 
   return (
     <section className="player-comparison player-comparison-primary">
@@ -88,14 +87,6 @@ export default function PlayerComparison({ comparison, isAverage }) {
               )}
             </p>
           </div>
-          {core && (
-            <div className="player-quick-stats">
-              <span>{(core.goals ?? 0).toFixed(isAverage ? 1 : 0)}G</span>
-              <span>{(core.assists ?? 0).toFixed(isAverage ? 1 : 0)}A</span>
-              <span>{(core.saves ?? 0).toFixed(isAverage ? 1 : 0)}S</span>
-              <span>{(core.shots ?? 0).toFixed(isAverage ? 1 : 0)}SH</span>
-            </div>
-          )}
         </div>
         <p className="section-desc">
           vs {isAverage ? "games-weighted " : ""}average of{" "}

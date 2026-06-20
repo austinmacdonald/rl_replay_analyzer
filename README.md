@@ -2,35 +2,7 @@
 
 Load replays from your [Ballchasing](https://ballchasing.com) account and view all player and team stats in a clean web UI. Multi-select replays to average stats per player.
 
-## Setup
-
-1. **Install dependencies**
-
-   ```bash
-   npm install
-   ```
-
-2. **Run the app** (see below), then paste your [Ballchasing API token](https://ballchasing.com/upload) in the header — stored in your browser only.
-
-## Run
-
-**Development** (frontend + API with hot reload):
-
-```bash
-npm run dev
-```
-
-- Frontend: http://localhost:5173
-- API: http://localhost:3001
-
-**Production**:
-
-```bash
-npm run build
-npm start
-```
-
-Open http://localhost:3001
+**Live app:** [rl-replay-analyzer.onrender.com](https://rl-replay-analyzer.onrender.com/)
 
 ## How it works
 
